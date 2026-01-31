@@ -41,12 +41,13 @@ class DataFetcher:
         self.cache_manager = cache_manager
         self.logger = logger
 
-    def fetch_live_games(self, league_key: str) -> List[Dict]:
+    def fetch_live_games(self, league_key: str, max_games: int = 50) -> List[Dict]:
         """
         Fetch live games for a specific league.
 
         Args:
             league_key: League identifier ('nba', 'nfl', 'ncaam', 'ncaaf')
+            max_games: Maximum number of games to return
 
         Returns:
             List of game dictionaries with extracted stats
@@ -80,6 +81,11 @@ class DataFetcher:
             self.logger.debug(f"Processing {total_events} total events for {league_key}")
 
             for event in scoreboard.get('events', []):
+                # Stop if we've reached max games
+                if len(live_games) >= max_games:
+                    self.logger.info(f"Reached max_games limit ({max_games}) for {league_key}")
+                    break
+
                 # Only process games that are live (in progress)
                 status_state = event.get('status', {}).get('type', {}).get('state')
                 self.logger.debug(f"Event status: {status_state}")
@@ -95,7 +101,7 @@ class DataFetcher:
                                    f"home_leaders: {bool(game_info.get('home_leaders'))}, "
                                    f"away_leaders: {bool(game_info.get('away_leaders'))}")
 
-            self.logger.info(f"Found {len(live_games)} live games in {league_key} (out of {total_events} total)")
+            self.logger.info(f"Found {len(live_games)} live games in {league_key} (out of {total_events} total, max={max_games})")
             return live_games
 
         except Exception as e:
@@ -170,11 +176,17 @@ class DataFetcher:
         try:
             stats_section = competitor_data.get('statistics', [])
             if not stats_section:
+                self.logger.debug(f"No statistics section found for competitor")
                 return None
+
+            # Log what stat sections are available
+            section_names = [s.get('name') for s in stats_section if isinstance(s, dict)]
+            self.logger.debug(f"Available stat sections: {section_names}")
 
             # Find athletes section
             athletes_data = next((s for s in stats_section if s.get('name') == 'athletes'), None)
             if not athletes_data or 'athletes' not in athletes_data:
+                self.logger.debug(f"No athletes section found. Stats structure: {stats_section[:1] if stats_section else 'empty'}")
                 return None
 
             athletes = athletes_data.get('athletes', [])

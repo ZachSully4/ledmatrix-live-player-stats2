@@ -50,6 +50,13 @@
           "minimum": 30,
           "maximum": 1800,
           "description": "Cache time-to-live in seconds"
+        },
+        "max_games_per_league": {
+          "type": "integer",
+          "default": 50,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Maximum number of games to display per league"
         }
       },
       "default": {}
