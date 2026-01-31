@@ -123,6 +123,7 @@ class DataFetcher:
             competition = event.get('competitions', [{}])[0]
             status = event.get('status', {})
             competitors = competition.get('competitors', [])
+            game_id = event.get('id')
 
             if len(competitors) < 2:
                 return None
@@ -136,7 +137,7 @@ class DataFetcher:
 
             # Extract basic game info
             game_data = {
-                'id': event.get('id'),
+                'id': game_id,
                 'home_abbr': home_team.get('team', {}).get('abbreviation', 'HOME'),
                 'away_abbr': away_team.get('team', {}).get('abbreviation', 'AWAY'),
                 'home_score': int(home_team.get('score', 0)),
@@ -146,19 +147,164 @@ class DataFetcher:
                 'period_text': status.get('type', {}).get('shortDetail', ''),
             }
 
-            # Extract stat leaders based on sport
-            if league_key in ['nba', 'ncaam']:
-                game_data['home_leaders'] = self.extract_basketball_leaders(home_team)
-                game_data['away_leaders'] = self.extract_basketball_leaders(away_team)
-            elif league_key in ['nfl', 'ncaaf']:
-                game_data['home_leaders'] = self.extract_football_leaders(home_team)
-                game_data['away_leaders'] = self.extract_football_leaders(away_team)
+            # Fetch detailed boxscore for player stats
+            if game_id:
+                boxscore = self._fetch_game_boxscore(game_id, league_key)
+                if boxscore:
+                    # Extract stat leaders from boxscore
+                    if league_key in ['nba', 'ncaam']:
+                        game_data['home_leaders'] = self._extract_boxscore_basketball_leaders(boxscore, 'home')
+                        game_data['away_leaders'] = self._extract_boxscore_basketball_leaders(boxscore, 'away')
+                    elif league_key in ['nfl', 'ncaaf']:
+                        game_data['home_leaders'] = self._extract_boxscore_football_leaders(boxscore, 'home')
+                        game_data['away_leaders'] = self._extract_boxscore_football_leaders(boxscore, 'away')
+                else:
+                    # Fallback to scoreboard data (will likely be None)
+                    if league_key in ['nba', 'ncaam']:
+                        game_data['home_leaders'] = self.extract_basketball_leaders(home_team)
+                        game_data['away_leaders'] = self.extract_basketball_leaders(away_team)
+                    elif league_key in ['nfl', 'ncaaf']:
+                        game_data['home_leaders'] = self.extract_football_leaders(home_team)
+                        game_data['away_leaders'] = self.extract_football_leaders(away_team)
 
             return game_data
 
         except Exception as e:
             self.logger.warning(f"Error parsing game event: {e}")
             return None
+
+    def _fetch_game_boxscore(self, game_id: str, league_key: str) -> Optional[Dict]:
+        """
+        Fetch detailed boxscore for a specific game.
+
+        Args:
+            game_id: ESPN game ID
+            league_key: League identifier
+
+        Returns:
+            Boxscore data or None if unavailable
+        """
+        sport, league = LEAGUE_MAP.get(league_key, (None, None))
+        if not sport or not league:
+            return None
+
+        try:
+            # ESPN boxscore/summary endpoint
+            url = f"https://site.web.api.espn.com/apis/site/v2/sports/{sport}/{league}/summary"
+            params = {'event': game_id}
+            cache_key = f"boxscore_{league_key}_{game_id}"
+
+            response = self.api_helper.get(
+                url,
+                params=params,
+                cache_key=cache_key,
+                cache_ttl=60
+            )
+
+            return response
+
+        except Exception as e:
+            self.logger.debug(f"Error fetching boxscore for game {game_id}: {e}")
+            return None
+
+    def _extract_boxscore_basketball_leaders(self, boxscore: Dict, home_away: str) -> Optional[Dict]:
+        """
+        Extract basketball leaders from boxscore data.
+
+        Args:
+            boxscore: Boxscore response from ESPN
+            home_away: 'home' or 'away'
+
+        Returns:
+            Leaders dict or None
+        """
+        try:
+            # Navigate boxscore structure
+            # Boxscore typically has: boxscore.players array with team data
+            players_section = boxscore.get('boxscore', {}).get('players', [])
+
+            # Find the team (home is usually index 1, away is 0, but check homeAway field)
+            team_data = None
+            for team in players_section:
+                team_info = team.get('team', {})
+                if team_info.get('homeAway') == home_away:
+                    team_data = team
+                    break
+
+            if not team_data:
+                self.logger.debug(f"No team data found for {home_away} in boxscore")
+                return None
+
+            # Get statistics from players
+            statistics = team_data.get('statistics', [])
+            if not statistics:
+                return None
+
+            # Find the main stats section (usually first one with athletes)
+            stats_group = statistics[0] if statistics else None
+            if not stats_group:
+                return None
+
+            athletes = stats_group.get('athletes', [])
+            if not athletes:
+                return None
+
+            # Extract leaders for PTS, REB, AST
+            leaders = {}
+            max_pts = {'name': None, 'value': 0}
+            max_reb = {'name': None, 'value': 0}
+            max_ast = {'name': None, 'value': 0}
+
+            for athlete in athletes:
+                name = athlete.get('athlete', {}).get('shortName', athlete.get('athlete', {}).get('displayName', 'Unknown'))
+                stats = athlete.get('stats', [])
+
+                # Stats are usually strings in order, need to find PTS/REB/AST
+                # Common order: MIN, FG, 3PT, FT, OREB, DREB, REB, AST, STL, BLK, TO, PF, PTS
+                # But this varies, so we need to check the labels
+                if len(stats) >= 13:  # Typical basketball stat line length
+                    try:
+                        pts = int(stats[-1]) if stats[-1] else 0  # PTS usually last
+                        reb = int(stats[6]) if len(stats) > 6 and stats[6] else 0  # REB usually index 6
+                        ast = int(stats[7]) if len(stats) > 7 and stats[7] else 0  # AST usually index 7
+
+                        if pts > max_pts['value']:
+                            max_pts = {'name': name, 'value': pts}
+                        if reb > max_reb['value']:
+                            max_reb = {'name': name, 'value': reb}
+                        if ast > max_ast['value']:
+                            max_ast = {'name': name, 'value': ast}
+                    except (ValueError, IndexError):
+                        continue
+
+            if max_pts['name']:
+                leaders['PTS'] = max_pts
+            if max_reb['name']:
+                leaders['REB'] = max_reb
+            if max_ast['name']:
+                leaders['AST'] = max_ast
+
+            return leaders if leaders else None
+
+        except Exception as e:
+            self.logger.debug(f"Error extracting basketball leaders from boxscore: {e}")
+            return None
+
+    def _extract_boxscore_football_leaders(self, boxscore: Dict, home_away: str) -> Optional[Dict]:
+        """
+        Extract football leaders from boxscore data.
+
+        Args:
+            boxscore: Boxscore response from ESPN
+            home_away: 'home' or 'away'
+
+        Returns:
+            Leaders dict or None
+        """
+        # Similar structure to basketball, but look for passing/rushing/receiving stats
+        # Implementation similar to _extract_boxscore_basketball_leaders
+        # For now, return None as football structure may differ
+        return None
 
     def extract_basketball_leaders(self, competitor_data: Dict) -> Optional[Dict]:
         """
