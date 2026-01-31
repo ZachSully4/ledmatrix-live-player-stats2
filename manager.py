@@ -45,7 +45,7 @@ class LivePlayerStatsPlugin(BasePlugin):
         super().__init__(plugin_id, config, display_manager, cache_manager, plugin_manager)
 
         # Initialize API helper
-        self.api_helper = APIHelper(self.cache_manager, self.logger)
+        self.api_helper = APIHelper(self.cache_manager, logger=self.logger)
 
         # Initialize data fetcher
         self.data_fetcher = DataFetcher(
