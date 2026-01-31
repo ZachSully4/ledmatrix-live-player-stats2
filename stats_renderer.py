@@ -223,7 +223,7 @@ class StatsRenderer:
             logo_x = (panel_width - logo_size) // 2
             panel.paste(logo, (logo_x, 1), logo if logo.mode == 'RGBA' else None)
 
-        y_pos = 16
+        y_pos = 6
 
         # Draw stat leaders
         if leaders and ('PTS' in leaders or 'REB' in leaders or 'AST' in leaders):
