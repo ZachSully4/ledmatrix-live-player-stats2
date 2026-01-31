@@ -174,7 +174,7 @@ class LivePlayerStatsPlugin(BasePlugin):
 
         # Render individual game cards
         game_cards = []
-        card_width = 100  # Width per game card
+        card_width = 150  # Width per game card (wider to show detailed stats)
 
         for game in self.games_data:
             try:

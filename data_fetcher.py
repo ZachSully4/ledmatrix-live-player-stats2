@@ -640,25 +640,33 @@ class DataFetcher:
             Leaders dict with PTS/REB/AST leaders or None
         """
         try:
+            teams_info = boxscore.get('teams', [])
             team_boxscore = boxscore.get('teamBoxscore', [])
-            if not team_boxscore:
+
+            self.logger.debug(f"NCAA boxscore has {len(teams_info)} teams and {len(team_boxscore)} team stats")
+
+            if not teams_info or not team_boxscore:
+                self.logger.debug("Missing teams or teamBoxscore data")
                 return None
 
-            # Find the team (home or away)
-            team_data = None
-            for team in team_boxscore:
-                team_info_list = boxscore.get('teams', [])
-                for team_info in team_info_list:
-                    if team_info.get('teamId') == team.get('teamId'):
-                        if team_info.get('isHome') == is_home:
-                            team_data = team
-                            break
+            # Find the correct team index (teams and teamBoxscore are in same order)
+            team_index = None
+            for idx, team_info in enumerate(teams_info):
+                if team_info.get('isHome') == is_home:
+                    team_index = idx
+                    team_name = team_info.get('nameShort', '?')
+                    self.logger.debug(f"Found {'home' if is_home else 'away'} team at index {idx}: {team_name}")
+                    break
 
-            if not team_data:
-                self.logger.debug(f"No team data found for {'home' if is_home else 'away'} in NCAA boxscore")
+            if team_index is None or team_index >= len(team_boxscore):
+                self.logger.debug(f"Could not find team index for {'home' if is_home else 'away'}")
                 return None
 
+            team_data = team_boxscore[team_index]
             player_stats = team_data.get('playerStats', [])
+
+            self.logger.debug(f"Found {len(player_stats)} players for {'home' if is_home else 'away'} team")
+
             if not player_stats:
                 return None
 
@@ -675,9 +683,9 @@ class DataFetcher:
 
                 # Get stats (NCAA API returns strings)
                 try:
-                    pts = int(player.get('points', 0))
-                    reb = int(player.get('totalRebounds', 0))
-                    ast = int(player.get('assists', 0))
+                    pts = int(player.get('points', 0) or 0)
+                    reb = int(player.get('totalRebounds', 0) or 0)
+                    ast = int(player.get('assists', 0) or 0)
 
                     if pts > max_pts['value']:
                         max_pts = {'name': self._abbreviate_name(full_name), 'value': pts}
@@ -686,18 +694,22 @@ class DataFetcher:
                     if ast > max_ast['value']:
                         max_ast = {'name': self._abbreviate_name(full_name), 'value': ast}
 
-                except (ValueError, TypeError):
+                except (ValueError, TypeError) as e:
+                    self.logger.debug(f"Error parsing stats for {full_name}: {e}")
                     continue
 
             if max_pts['name']:
                 leaders['PTS'] = max_pts
+                self.logger.debug(f"PTS leader: {max_pts['name']} - {max_pts['value']}")
             if max_reb['name']:
                 leaders['REB'] = max_reb
+                self.logger.debug(f"REB leader: {max_reb['name']} - {max_reb['value']}")
             if max_ast['name']:
                 leaders['AST'] = max_ast
+                self.logger.debug(f"AST leader: {max_ast['name']} - {max_ast['value']}")
 
             return leaders if leaders else None
 
         except Exception as e:
-            self.logger.debug(f"Error extracting NCAA basketball leaders: {e}")
+            self.logger.error(f"Error extracting NCAA basketball leaders: {e}", exc_info=True)
             return None

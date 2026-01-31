@@ -98,26 +98,27 @@ class StatsRenderer:
                 draw.text((2, y_pos), status_text, font=self.small_font, fill=COLOR_GRAY)
                 y_pos += 7
 
-            # Draw away team leaders
+            # Draw away team leaders (one line per stat category)
             if away_leaders:
-                leader_text = self._format_leaders(away_abbr, away_leaders)
-                if leader_text:
-                    draw.text((2, y_pos), leader_text, font=self.small_font, fill=COLOR_LIGHT_BLUE)
+                leader_lines = self._format_leaders_detailed(away_abbr, away_leaders)
+                for line in leader_lines:
+                    draw.text((2, y_pos), line, font=self.small_font, fill=COLOR_LIGHT_BLUE)
                     y_pos += 6
             else:
                 # No stats available yet
-                draw.text((2, y_pos), f"{away_abbr}: Stats N/A", font=self.small_font, fill=COLOR_GRAY)
+                draw.text((2, y_pos), f"{away_abbr}: N/A", font=self.small_font, fill=COLOR_GRAY)
                 y_pos += 6
 
-            # Draw home team leaders
+            # Draw home team leaders (one line per stat category)
             if home_leaders:
-                leader_text = self._format_leaders(home_abbr, home_leaders)
-                if leader_text:
-                    draw.text((2, y_pos), leader_text, font=self.small_font, fill=COLOR_LIGHT_BLUE)
+                leader_lines = self._format_leaders_detailed(home_abbr, home_leaders)
+                for line in leader_lines:
+                    draw.text((2, y_pos), line, font=self.small_font, fill=COLOR_LIGHT_BLUE)
                     y_pos += 6
             else:
                 # No stats available yet
-                draw.text((2, y_pos), f"{home_abbr}: Stats N/A", font=self.small_font, fill=COLOR_GRAY)
+                draw.text((2, y_pos), f"{home_abbr}: N/A", font=self.small_font, fill=COLOR_GRAY)
+                y_pos += 6
 
             return img
 
@@ -126,9 +127,68 @@ class StatsRenderer:
             # Return error card
             return self._create_error_card(card_width)
 
+    def _format_leaders_detailed(self, team_abbr: str, leaders: Dict) -> list:
+        """
+        Format leader stats with one line per stat category.
+
+        Args:
+            team_abbr: Team abbreviation
+            leaders: Dictionary of stat leaders
+
+        Returns:
+            List of formatted strings, one per stat leader
+        """
+        if not leaders:
+            return []
+
+        lines = []
+
+        # Check if this is basketball or football stats
+        if 'PTS' in leaders or 'REB' in leaders or 'AST' in leaders:
+            # Basketball format: Show each leader separately
+            if 'PTS' in leaders:
+                pts_leader = leaders['PTS']
+                name = self._abbreviate_display_name(pts_leader.get('name', '?'), max_length=10)
+                value = pts_leader.get('value', 0)
+                lines.append(f"{team_abbr} PTS: {name} {value}")
+
+            if 'REB' in leaders:
+                reb_leader = leaders['REB']
+                name = self._abbreviate_display_name(reb_leader.get('name', '?'), max_length=10)
+                value = reb_leader.get('value', 0)
+                lines.append(f"{team_abbr} REB: {name} {value}")
+
+            if 'AST' in leaders:
+                ast_leader = leaders['AST']
+                name = self._abbreviate_display_name(ast_leader.get('name', '?'), max_length=10)
+                value = ast_leader.get('value', 0)
+                lines.append(f"{team_abbr} AST: {name} {value}")
+
+        elif 'QB' in leaders or 'WR' in leaders or 'RB' in leaders:
+            # Football format: Show each position leader
+            if 'QB' in leaders:
+                name = leaders['QB'].get('name', '?')
+                stats = leaders['QB'].get('stats', '')
+                stats_short = stats.replace(' YDS', '').replace(' TD', 'TD')
+                lines.append(f"{team_abbr} QB: {name} {stats_short}")
+
+            if 'WR' in leaders:
+                name = leaders['WR'].get('name', '?')
+                stats = leaders['WR'].get('stats', '')
+                stats_short = stats.replace(' YDS', '').replace(' TD', 'TD')
+                lines.append(f"{team_abbr} WR: {name} {stats_short}")
+
+            if 'RB' in leaders:
+                name = leaders['RB'].get('name', '?')
+                stats = leaders['RB'].get('stats', '')
+                stats_short = stats.replace(' YDS', '').replace(' TD', 'TD')
+                lines.append(f"{team_abbr} RB: {name} {stats_short}")
+
+        return lines
+
     def _format_leaders(self, team_abbr: str, leaders: Dict) -> str:
         """
-        Format leader stats as a compact string.
+        Format leader stats as a compact string (legacy method).
 
         Args:
             team_abbr: Team abbreviation
