@@ -32,21 +32,25 @@ class StatsRenderer:
         self.display_height = display_height
 
         # Load fonts (using compact fonts for small display)
+        import os
         try:
             # Try to get 4x6 font for compact display
             self.small_font = ImageFont.load_default()
             self.medium_font = ImageFont.load_default()
 
             # Attempt to load better fonts if available
-            try:
-                # Try BDF fonts from the system
-                self.small_font = ImageFont.truetype("c:\\Users\\zdsul\\OneDrive\\Documents\\LEDMATRIX\\LEDMatrix\\assets\\fonts\\4x6-font.ttf", 6)
-            except:
-                pass
+            # Try to find the LEDMatrix root directory
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            ledmatrix_root = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
+            font_dir = os.path.join(ledmatrix_root, 'assets', 'fonts')
 
             try:
-                self.medium_font = ImageFont.truetype("c:\\Users\\zdsul\\OneDrive\\Documents\\LEDMATRIX\\LEDMatrix\\assets\\fonts\\4x6-font.ttf", 8)
-            except:
+                font_path_4x6 = os.path.join(font_dir, '4x6-font.ttf')
+                if os.path.exists(font_path_4x6):
+                    self.small_font = ImageFont.truetype(font_path_4x6, 6)
+                    self.medium_font = ImageFont.truetype(font_path_4x6, 8)
+            except Exception as e:
+                self.logger.debug(f"Could not load custom fonts: {e}")
                 pass
 
         except Exception as e:

@@ -16,9 +16,16 @@ from src.common.api_helper import APIHelper
 from src.common.scroll_helper import ScrollHelper
 from PIL import Image
 
+# Add current plugin directory to path for local imports
+plugin_dir = os.path.dirname(os.path.abspath(__file__))
+if plugin_dir not in sys.path:
+    sys.path.insert(0, plugin_dir)
+
 # Import plugin modules
-from data_fetcher import DataFetcher
-from stats_renderer import StatsRenderer
+import data_fetcher
+import stats_renderer
+DataFetcher = data_fetcher.DataFetcher
+StatsRenderer = stats_renderer.StatsRenderer
 
 
 class LivePlayerStatsPlugin(BasePlugin):
