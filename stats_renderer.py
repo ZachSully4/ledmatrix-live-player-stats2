@@ -140,11 +140,22 @@ class StatsRenderer:
         draw = ImageDraw.Draw(panel)
 
         # Get team logos
+        self.logger.debug(f"Loading logos for {away_abbr} @ {home_abbr} (league: {league})")
         away_logo = self._get_team_logo(league, away_abbr)
         home_logo = self._get_team_logo(league, home_abbr)
 
+        if away_logo:
+            self.logger.debug(f"Away logo loaded for {away_abbr}")
+        else:
+            self.logger.warning(f"Away logo NOT found for {away_abbr}")
+
+        if home_logo:
+            self.logger.debug(f"Home logo loaded for {home_abbr}")
+        else:
+            self.logger.warning(f"Home logo NOT found for {home_abbr}")
+
         # Logo size - smaller to fit in 64px
-        logo_size = 22
+        logo_size = 20
         if away_logo:
             away_logo = away_logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
         if home_logo:
@@ -152,35 +163,39 @@ class StatsRenderer:
 
         # Layout positions
         current_x = 2
-        y_center = self.display_height // 2
 
-        # Draw away logo (top half)
+        # --- TOP HALF: Away Team ---
+        # Logo or team abbr
         if away_logo:
             logo_y = 2
             panel.paste(away_logo, (current_x, logo_y), away_logo if away_logo.mode == 'RGBA' else None)
+        else:
+            # Draw team abbr if no logo
+            draw.text((current_x, 2), away_abbr[:4], font=self.small_font, fill=COLOR_WHITE)
 
-        # Draw home logo (bottom half)
+        # Away score
+        score_x = current_x + logo_size + 2
+        draw.text((score_x, 2), str(away_score), font=self.medium_font, fill=COLOR_WHITE)
+
+        # --- BOTTOM HALF: Home Team ---
+        # Logo or team abbr
         if home_logo:
             logo_y = self.display_height - logo_size - 2
             panel.paste(home_logo, (current_x, logo_y), home_logo if home_logo.mode == 'RGBA' else None)
+        else:
+            # Draw team abbr if no logo
+            draw.text((current_x, self.display_height - 8), home_abbr[:4], font=self.small_font, fill=COLOR_WHITE)
 
-        current_x += logo_size + 2
+        # Home score
+        draw.text((score_x, self.display_height - 10), str(home_score), font=self.medium_font, fill=COLOR_WHITE)
 
-        # Draw scores and status on right side
-        # Away score at top
-        score_text = f"{away_score}"
-        draw.text((current_x, 2), score_text, font=self.medium_font, fill=COLOR_WHITE)
-
-        # Home score at bottom
-        score_text = f"{home_score}"
-        draw.text((current_x, self.display_height - 10), score_text, font=self.medium_font, fill=COLOR_WHITE)
-
-        # Period/clock in middle
+        # --- MIDDLE: Period/Clock ---
         if period_text:
-            status_y = y_center - 4
             # Truncate to fit
             status_text = period_text[:8]
-            draw.text((current_x, status_y), status_text, font=self.small_font, fill=COLOR_GRAY)
+            # Center it
+            y_center = self.display_height // 2
+            draw.text((current_x, y_center - 3), status_text, font=self.small_font, fill=COLOR_GRAY)
 
         return panel
 
@@ -438,7 +453,7 @@ class StatsRenderer:
             league_logo_map = {
                 'nba': 'nba_logos',
                 'nfl': 'nfl_logos',
-                'ncaam': 'ncaa_mens_logos',
+                'ncaam': 'ncaa_logos',  # College logos are shared for basketball and football
                 'ncaaf': 'ncaa_logos'
             }
 
