@@ -88,7 +88,15 @@ class DataFetcher:
 
                 # Only process games that are live (in progress)
                 status_state = event.get('status', {}).get('type', {}).get('state')
-                self.logger.debug(f"Event status: {status_state}")
+                status_detail = event.get('status', {}).get('type', {}).get('detail', '')
+
+                # Log game status for debugging
+                comp = event.get('competitions', [{}])[0]
+                comps = comp.get('competitors', [])
+                if len(comps) >= 2:
+                    away = comps[0].get('team', {}).get('abbreviation', '?')
+                    home = comps[1].get('team', {}).get('abbreviation', '?')
+                    self.logger.info(f"Game: {away} @ {home}, Status: {status_state} ({status_detail})")
 
                 if status_state != 'in':
                     continue
