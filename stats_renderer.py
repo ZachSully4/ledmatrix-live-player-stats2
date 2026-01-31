@@ -223,7 +223,7 @@ class StatsRenderer:
             logo_x = (panel_width - logo_size) // 2
             panel.paste(logo, (logo_x, 1), logo if logo.mode == 'RGBA' else None)
 
-        y_pos = 6
+        y_pos = 0
 
         # Draw stat leaders
         if leaders and ('PTS' in leaders or 'REB' in leaders or 'AST' in leaders):
@@ -234,7 +234,7 @@ class StatsRenderer:
                 value = pts_leader.get('value', 0)
                 text = f"P:{name} {value}"
                 draw.text((2, y_pos), text, font=self.small_font, fill=COLOR_LIGHT_BLUE)
-                y_pos += 6
+                y_pos += 0
 
             # Rebounds leader
             if 'REB' in leaders:
@@ -243,7 +243,7 @@ class StatsRenderer:
                 value = reb_leader.get('value', 0)
                 text = f"R:{name} {value}"
                 draw.text((2, y_pos), text, font=self.small_font, fill=COLOR_LIGHT_BLUE)
-                y_pos += 6
+                y_pos += 0
 
             # Assists leader
             if 'AST' in leaders:
