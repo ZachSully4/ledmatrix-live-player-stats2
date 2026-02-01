@@ -167,7 +167,7 @@ class StatsRenderer:
         # --- TOP HALF: Away Team ---
         # Logo or team abbr
         if away_logo:
-            logo_y = 2
+            logo_y = 16
             panel.paste(away_logo, (current_x, logo_y), away_logo if away_logo.mode == 'RGBA' else None)
         else:
             # Draw team abbr if no logo
@@ -234,7 +234,7 @@ class StatsRenderer:
                 value = pts_leader.get('value', 0)
                 text = f"P:{name} {value}"
                 draw.text((2, y_pos), text, font=self.small_font, fill=COLOR_LIGHT_BLUE)
-                y_pos += 0
+                y_pos += 16
 
             # Rebounds leader
             if 'REB' in leaders:
@@ -243,7 +243,7 @@ class StatsRenderer:
                 value = reb_leader.get('value', 0)
                 text = f"R:{name} {value}"
                 draw.text((2, y_pos), text, font=self.small_font, fill=COLOR_LIGHT_BLUE)
-                y_pos += 0
+                y_pos += 10
 
             # Assists leader
             if 'AST' in leaders:
